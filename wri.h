@@ -21,7 +21,7 @@
 
 //#include "config.h"
 
-#define SIZEOF_READBUFFER 512 // Make this a number of bits so that a faster bitshift operation may be used
+#define SIZEOF_READBUFFER 64 // Make this a number of bits so that a faster bitshift operation may be used
 
 static const int FMT_SIZEOF_MASTERBLOCK						= 24;
 static const int FMT_SIZEOF_DACHEADER						= 6;

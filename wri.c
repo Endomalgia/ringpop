@@ -3,22 +3,6 @@
 #define MIN(i, j) (((i) < (j)) ? (i) : (j))
 #define MAX(i, j) (((i) > (j)) ? (i) : (j))
 
-/*
-typedef struct {
-	int		fptr;
-	char*	name;
-	long	length;
-	int 	type;
-} RIASSET;
-
-typedef struct {
-	int   		fptr;
-	long 		length;
-	int 		na;
-	RIASSET*	assets;
-} RIEncoder;
-*/
-
 // https://stackoverflow.com/questions/109023/count-the-number-of-set-bits-in-a-32-bit-integer
 int nSetBits(int i) {
 	i = i - ((i >> 1) & 0x55555555);        		// add pairs of bits
@@ -56,47 +40,6 @@ long int flen(int fd) {
 	return (long)info.st_size;
 }
 
-void wriWriteDAC(RIEncoder* enc) {
-	int dac_size = 6 + (FMT_SIZEOF_DACASSET * enc->na);
-	char* buf = malloc(dac_size);
-
-	memset(buf, 0, dac_size);
-
-	memcpy(buf, 									FMT_DATAARRAYBLOCKID, 				4);
-	memcpy(buf+6-nUsedBytes(enc->na), 				&(enc->na), 						2);
-	enc->length = FMT_SIZEOF_MASTERBLOCK + FMT_SIZEOF_DACHEADER + FMT_SIZEOF_DACASSET*enc->na + FMT_SIZEOF_DATAHEADER;
-	for (int i=0;i<enc->na;i++) {
-		int l = 6 + (FMT_SIZEOF_DACASSET * i);
-		enc->assets[i].offset = enc->length;
-
-		memcpy(buf+l+2-nUsedBytes(enc->assets[i].type),		&(enc->assets[i].type), 	2);
-		memcpy(buf+l+2,										enc->assets[i].name, 		MIN(16, strlen(enc->assets[i].name))); // Remove ext and null
-		memcpy(buf+l+22-nUsedBytes(enc->assets[i].length),	&(enc->assets[i].length), 	4);
-		memcpy(buf+l+FMT_SIZEOF_DACASSET-nUsedBytes(enc->assets[i].offset),	&(enc->assets[i].offset), 	4);
-		
-		enc->length += enc->assets[i].length + FMT_SIZEOF_FILEDIVIDER;
-	}
-
-	lseek(enc->fptr, FMT_SIZEOF_MASTERBLOCK, SEEK_SET);
-	write(enc->fptr, buf,	dac_size);
-	free(buf);
-}
-
-void wriWriteMaster(RIEncoder* enc) {
-	enc->length = (long)MAX(flen(enc->fptr), FMT_SIZEOF_MASTERBLOCK);
-	char buf[FMT_SIZEOF_MASTERBLOCK];
-
-	memset(buf, 0, FMT_SIZEOF_MASTERBLOCK);
-
-	memcpy(buf, 							FMT_MASTERBLOCKID, 	4);
-	memcpy(buf+8-nUsedBytes(enc->length), 	&(enc->length), 	4);
-	memcpy(buf+8, 							FMT_VERSIONSTRING, 	16);
-
-	lseek(enc->fptr, 0, SEEK_SET);
-	write(enc->fptr, buf,	FMT_SIZEOF_MASTERBLOCK);
-}
-
-
 RIEncoder* wriStartEncoder(char* ri_filepath) {
 	RIEncoder* enc;
 
@@ -125,6 +68,89 @@ RIEncoder* wriStartEncoder(char* ri_filepath) {
 	wriWriteMaster(enc);
 
 	return enc;
+}
+
+RIEncoder* wriOpenEncoder(char* ri_filepath) {
+	RIEncoder* enc;
+
+	// Check if the file doesn't exist
+	if (access(ri_filepath, F_OK) != 0) {
+		printf("[E] wriOpenEncoder: File does not exist [%s]\n\t%s\n", ri_filepath, strerror(errno));
+		exit(0);
+	}
+
+	enc = malloc(sizeof(RIEncoder));
+	enc->fptr = open(ri_filepath, O_RDWR, S_IRUSR | S_IWUSR);
+	enc->na = enc->length = 0;
+	if (enc->fptr < 0) {
+		printf("[E] wriOpenEncoder: Unable to open file [%s]\n\t%s\n", ri_filepath, strerror(errno));
+		exit(0);
+	}
+
+	// Write out the master ring chunk
+	/*
+	write(enc->fptr, FMT_MASTERBLOCKID, 	4);
+	write(enc->fptr, &(enc->length), 		4);
+	write(enc->fptr, FMT_VERSIONSTRING, 	16);
+	*/
+
+	wriWriteDAC(enc);
+
+	// Write the data header label thingie
+	lseek(enc->fptr, FMT_SIZEOF_MASTERBLOCK + FMT_SIZEOF_DACHEADER + FMT_SIZEOF_DACASSET*enc->na, SEEK_SET);
+	write(enc->fptr, FMT_DATABLOCKID, FMT_SIZEOF_DATAHEADER);
+
+	wriWriteMaster(enc);
+
+	return enc;
+}
+
+void wriCloseEncoder(RIEncoder* enc) {
+	for (int i=0; i<enc->na; i++) {
+		close(enc->assets[i].fptr);
+	}
+	free(enc->assets);
+	close(enc->fptr);
+}
+
+void wriWriteMaster(RIEncoder* enc) {
+	enc->length = (long)MAX(flen(enc->fptr), FMT_SIZEOF_MASTERBLOCK);
+	char buf[FMT_SIZEOF_MASTERBLOCK];
+
+	memset(buf, 0, FMT_SIZEOF_MASTERBLOCK);
+
+	memcpy(buf, 							FMT_MASTERBLOCKID, 	4);
+	memcpy(buf+8-nUsedBytes(enc->length), 	&(enc->length), 	4);
+	memcpy(buf+8, 							FMT_VERSIONSTRING, 	16);
+
+	lseek(enc->fptr, 0, SEEK_SET);
+	write(enc->fptr, buf,	FMT_SIZEOF_MASTERBLOCK);
+}
+
+void wriWriteDAC(RIEncoder* enc) {
+	int dac_size = 6 + (FMT_SIZEOF_DACASSET * enc->na);
+	char* buf = malloc(dac_size);
+
+	memset(buf, 0, dac_size);
+
+	memcpy(buf, 									FMT_DATAARRAYBLOCKID, 				4);
+	memcpy(buf+6-nUsedBytes(enc->na), 				&(enc->na), 						2);
+	enc->length = FMT_SIZEOF_MASTERBLOCK + FMT_SIZEOF_DACHEADER + FMT_SIZEOF_DACASSET*enc->na + FMT_SIZEOF_DATAHEADER;
+	for (int i=0;i<enc->na;i++) {
+		int l = 6 + (FMT_SIZEOF_DACASSET * i);
+		enc->assets[i].offset = enc->length;
+
+		memcpy(buf+l+2-nUsedBytes(enc->assets[i].type),		&(enc->assets[i].type), 	2);
+		memcpy(buf+l+2,										enc->assets[i].name, 		MIN(16, strlen(enc->assets[i].name))); // Remove ext and null
+		memcpy(buf+l+22-nUsedBytes(enc->assets[i].length),	&(enc->assets[i].length), 	4);
+		memcpy(buf+l+FMT_SIZEOF_DACASSET-nUsedBytes(enc->assets[i].offset),	&(enc->assets[i].offset), 	4);
+		
+		enc->length += enc->assets[i].length + FMT_SIZEOF_FILEDIVIDER;
+	}
+
+	lseek(enc->fptr, FMT_SIZEOF_MASTERBLOCK, SEEK_SET);
+	write(enc->fptr, buf,	dac_size);
+	free(buf);
 }
 
 void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n) {
@@ -177,41 +203,6 @@ void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n) {
 	wriWriteMaster(enc);
 }
 
-RIEncoder* wriOpenEncoder(char* ri_filepath) {
-	RIEncoder* enc;
-
-	// Check if the file doesn't exist
-	if (access(ri_filepath, F_OK) != 0) {
-		printf("[E] wriOpenEncoder: File does not exist [%s]\n\t%s\n", ri_filepath, strerror(errno));
-		exit(0);
-	}
-
-	enc = malloc(sizeof(RIEncoder));
-	enc->fptr = open(ri_filepath, O_RDWR, S_IRUSR | S_IWUSR);
-	enc->na = enc->length = 0;
-	if (enc->fptr < 0) {
-		printf("[E] wriOpenEncoder: Unable to open file [%s]\n\t%s\n", ri_filepath, strerror(errno));
-		exit(0);
-	}
-
-	// Write out the master ring chunk
-	/*
-	write(enc->fptr, FMT_MASTERBLOCKID, 	4);
-	write(enc->fptr, &(enc->length), 		4);
-	write(enc->fptr, FMT_VERSIONSTRING, 	16);
-	*/
-
-	wriWriteDAC(enc);
-
-	// Write the data header label thingie
-	lseek(enc->fptr, FMT_SIZEOF_MASTERBLOCK + FMT_SIZEOF_DACHEADER + FMT_SIZEOF_DACASSET*enc->na, SEEK_SET);
-	write(enc->fptr, FMT_DATABLOCKID, FMT_SIZEOF_DATAHEADER);
-
-	wriWriteMaster(enc);
-
-	return enc;
-}
-
 void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {
 	for (int i=0;i<n;i++) {
 		if (access(fp_array[i], F_OK) != 0) {
@@ -219,17 +210,9 @@ void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {
 			exit(0);
 		}
 		ri_array[i].fptr 	= open(fp_array[i], O_RDONLY, S_IRUSR);
-		ri_array[i].length 	= flen(ri_array->fptr);
+		ri_array[i].length 	= flen(ri_array[i].fptr);
 		ri_array[i].name	= fp_array[i];
 		ri_array[i].offset 	= -1;
 		ri_array[i].type 	= 0; // Switch over extensions eventually
 	}
-}
-
-void wriCloseEncoder(RIEncoder* enc) {
-	for (int i=0; i<enc->na; i++) {
-		close(enc->assets[i].fptr);
-	}
-	free(enc->assets);
-	close(enc->fptr);
 }
