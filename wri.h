@@ -55,19 +55,24 @@ typedef struct {
 	RIASSET*			assets;
 } RIEncoder;
 
-/* RI Creation */
-RIEncoder* wriStartEncoder(char* ri_filepath);	// Creating new *.ri
-RIEncoder* wriOpenEncoder(char* ri_filepath);	// Writing to existing *.ri
+/* RI Encoder Creation */
+RIEncoder* wriStartEncoder(char* ri_filepath);					// Creating new *.ri
+RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode);	// Writing to existing *.ri (O_RDONLY, O_WRONLY, O_RDWR)
 void wriCloseEncoder(RIEncoder* enc);
 
 /* RI Writing */
 void wriWriteMaster(RIEncoder* enc);
 void wriWriteDAC(RIEncoder* enc);
 void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n);
+// void wriRemoveAssetbyIndex(RIEncoder* enc, int index); // I'm not going to do this until I have to use it which will be never. Just make another one.
 
 /* RI Reading */
-RIEncoder wriOpenEncoderReadonly(char* ri_filepath);
-RIASSET* wriReadDAC(RIEncoder* enc);
+void wriReadMaster(RIEncoder* enc);
+void wriReadDAC(RIEncoder* enc);
+
+/* Asset Access */
+int wriAssetGetFD(RIEncoder* enc, char* name);
+int wriAssetGetFDbyIndex(RIEncoder* enc, int index);
 
 /* Asset Array */
 void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n);

@@ -70,7 +70,7 @@ RIEncoder* wriStartEncoder(char* ri_filepath) {
 	return enc;
 }
 
-RIEncoder* wriOpenEncoder(char* ri_filepath) {
+RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
 	RIEncoder* enc;
 
 	// Check if the file doesn't exist
@@ -201,6 +201,22 @@ void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n) {
 
 	// Write master header (last as it contains the file size);
 	wriWriteMaster(enc);
+}
+
+void wriReadMaster(RIEncoder* enc) {
+
+}
+
+void wriReadDAC(RIEncoder* enc) {
+	
+}
+
+int wriAssetGetFD(RIEncoder* enc, char* name) {
+	return 0;
+}
+
+int wriAssetGetFDbyIndex(RIEncoder* enc, int index) {
+	return 0;
 }
 
 void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {
