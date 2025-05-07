@@ -8,7 +8,7 @@ NAME = ringpop
 
 # Includes and Libs
 INCS = -Iinclude -I/usr/local/include -I/usr/include/libxml2 -I/usr/include/freetype2 -I./
-LIBS = -L/usr/local/lib64 -ldl -logg -lvorbis -lportaudio -lsndfile
+LIBS = -L/usr/local/lib64 -ldl -logg -lvorbis -lportaudio -lsndfile -lm
 
 # Flags
 CFLAGS = ${INCS} -std=gnu17
@@ -23,7 +23,7 @@ ARCHITECTURE = $(shell uname -m)
 BUILD_DIR := ./build
 
 # Files to manipulate
-SRC := ringpop.c
+SRC := ringpop.c wri.c
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 
 all: options ${SO} build
