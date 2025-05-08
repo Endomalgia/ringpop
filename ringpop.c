@@ -58,14 +58,14 @@ int main(int argc, char* argv[]) {
 
 
 
-  char* asset_paths[] = {"./1.txt", "./2.txt", "./3.txt"};
-  RIASSET* assets = malloc(3*sizeof(RIASSET));
-  wriOpenAssets(asset_paths, assets, 3);
+  char* asset_paths[] = {"./1.txt", "./2.txt", "./3.txt", "./4.txt"};
+  RIASSET* assets = malloc(4*sizeof(RIASSET));
+  wriOpenAssets(asset_paths, assets, 4);
 
   printf("Opening encoder...\n");
   RIEncoder* enc = wriStartEncoder("./out.ri");
 
-  printf("Appending assets...\n");
+  printf("Appending assets...\n\n");
   wriAppendAssets(enc, &(assets[2]), 1);
 
   wriAppendAssets(enc, assets, 2);
@@ -84,8 +84,33 @@ int main(int argc, char* argv[]) {
     printf("ASSET [%d]\n\tNAME: \"%.*s\"\n\tOFFSET: %ld\n\tLENGTH: %ld\n", i, 16, enc->assets[i].name, enc->assets[i].offset, enc->assets[i].length);
   }
 
+  printf("Closing encoder...\n");
   wriCloseEncoder(enc);
-
   free(assets);
+
+
+  printf("Reopening encoder by filepath...\n\n");
+  RIEncoder* new_enc;
+  new_enc = wriOpenEncoder("./out.ri", O_RDWR);
+
+  printf("Appending file...\n\n");
+  wriAppendAssets(new_enc, &(assets[3]), 1);
+
+  char buf[512*4];
+  printf("ENCODER LENGTH = %d\n", new_enc->length);
+  printf("NUMBER OF ASSETS READ = %d\n", new_enc->na);
+  for (int i=0; i<new_enc->na; i++) {
+    printf("ASSET [%d]\n\tNAME: \"%.*s\"\n\tOFFSET: %ld\n\tLENGTH: %ld\n", i, 16, new_enc->assets[i].name, new_enc->assets[i].offset, new_enc->assets[i].length);
+    lseek(new_enc->fptr, new_enc->assets[i].offset, SEEK_SET);
+    read(new_enc->fptr, buf, new_enc->assets[i].length);
+    printf("\tREAD : \"%.*s\"\n", new_enc->assets[i].length, buf);
+  }
+
+  printf("Reclosing encoder...\n");
+  wriCloseEncoder(new_enc);
+
+  printf("Deleting file...\n");
+  remove("./out.ri");
+
 	return 0;
 }

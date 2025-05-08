@@ -254,7 +254,10 @@ void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {
 		}
 		ri_array[i].fptr 	= open(fp_array[i], O_RDONLY, S_IRUSR);
 		ri_array[i].length 	= flen(ri_array[i].fptr);
-		ri_array[i].name	= fp_array[i];
+
+		ri_array[i].name = malloc(16);
+		memcpy(ri_array[i].name, fp_array[i], 16);
+		//ri_array[i].name	= fp_array[i];
 		ri_array[i].offset 	= -1;
 		ri_array[i].type 	= 0; // Switch over extensions eventually
 	}
