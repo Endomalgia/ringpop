@@ -49,6 +49,7 @@ RIEncoder* wriStartEncoder(char* ri_filepath) {
 	}
 
 	enc = malloc(sizeof(RIEncoder));
+	enc->assets = malloc(0);
 	enc->fptr = open(ri_filepath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	enc->na = enc->length = 0;
 	if (enc->fptr < 0) {
@@ -79,27 +80,16 @@ RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
 	}
 
 	enc = malloc(sizeof(RIEncoder));
-	enc->fptr = open(ri_filepath, O_RDWR, S_IRUSR | S_IWUSR);
+	enc->assets = malloc(0);
+	enc->fptr = open(ri_filepath, access_mode, S_IRUSR | S_IWUSR);
 	enc->na = enc->length = 0;
 	if (enc->fptr < 0) {
 		printf("[E] wriOpenEncoder: Unable to open file [%s]\n\t%s\n", ri_filepath, strerror(errno));
 		exit(0);
 	}
 
-	// Write out the master ring chunk
-	/*
-	write(enc->fptr, FMT_MASTERBLOCKID, 	4);
-	write(enc->fptr, &(enc->length), 		4);
-	write(enc->fptr, FMT_VERSIONSTRING, 	16);
-	*/
-
-	wriWriteDAC(enc);
-
-	// Write the data header label thingie
-	lseek(enc->fptr, FMT_SIZEOF_MASTERBLOCK + FMT_SIZEOF_DACHEADER + FMT_SIZEOF_DACASSET*enc->na, SEEK_SET);
-	write(enc->fptr, FMT_DATABLOCKID, FMT_SIZEOF_DATAHEADER);
-
-	wriWriteMaster(enc);
+	wriReadMaster(enc);
+	wriReadDAC(enc);
 
 	return enc;
 }
@@ -107,6 +97,7 @@ RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
 void wriCloseEncoder(RIEncoder* enc) {
 	for (int i=0; i<enc->na; i++) {
 		close(enc->assets[i].fptr);
+		free(enc->assets[i].name);
 	}
 	free(enc->assets);
 	close(enc->fptr);
@@ -215,6 +206,7 @@ void wriReadMaster(RIEncoder* enc) {
 
 void wriReadDAC(RIEncoder* enc) {
 	char data_buf[26];
+
 	lseek(enc->fptr, FMT_SIZEOF_MASTERBLOCK + 4, SEEK_SET);
 	read(enc->fptr, data_buf, 2);
 	enc->na = xtoi(data_buf, 2);
