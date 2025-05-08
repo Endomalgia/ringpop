@@ -17,7 +17,7 @@ int nUsedBytes(int i) {
 		return 0;
 	int o = 1;
 	int t = i;
-	while(t >>= 0x10)
+	while(t >>= 8)
 		o++;
 	return o;
 }
@@ -28,7 +28,7 @@ int xtoi(char* xbuf, int nelem) {
 		return 0;
 	unsigned int o = 0;
 	for (int i=0; i<nelem; i++) {
-		o+=((unsigned char)xbuf[i] << (8*(nelem-i-1)));
+		o+=((unsigned char)xbuf[i] << (8*i));
 	}
 	return (int)o;
 }
@@ -49,6 +49,7 @@ RIEncoder* wriStartEncoder(char* ri_filepath) {
 	}
 
 	enc = malloc(sizeof(RIEncoder));
+	enc->filename = ri_filepath;
 	enc->assets = malloc(0);
 	enc->fptr = open(ri_filepath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	enc->na = enc->length = 0;
@@ -80,6 +81,7 @@ RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
 	}
 
 	enc = malloc(sizeof(RIEncoder));
+	enc->filename = ri_filepath;
 	enc->assets = malloc(0);
 	enc->fptr = open(ri_filepath, access_mode, S_IRUSR | S_IWUSR);
 	enc->na = enc->length = 0;
@@ -108,11 +110,10 @@ void wriWriteMaster(RIEncoder* enc) {
 	char buf[FMT_SIZEOF_MASTERBLOCK];
 
 	memset(buf, 0, FMT_SIZEOF_MASTERBLOCK);
-
 	memcpy(buf, 							FMT_MASTERBLOCKID, 	4);
-	memcpy(buf+8-nUsedBytes(enc->length), 	&(enc->length), 	4);
+	memcpy(buf+4, 							&(enc->length), 	4); 
 	memcpy(buf+8, 							FMT_VERSIONSTRING, 	16);
-
+	
 	lseek(enc->fptr, 0, SEEK_SET);
 	write(enc->fptr, buf,	FMT_SIZEOF_MASTERBLOCK);
 }
@@ -124,16 +125,16 @@ void wriWriteDAC(RIEncoder* enc) {
 	memset(buf, 0, dac_size);
 
 	memcpy(buf, 									FMT_DATAARRAYBLOCKID, 				4);
-	memcpy(buf+6-nUsedBytes(enc->na), 				&(enc->na), 						2);
+	memcpy(buf+4, 									&(enc->na), 						2);
 	enc->length = FMT_SIZEOF_MASTERBLOCK + FMT_SIZEOF_DACHEADER + FMT_SIZEOF_DACASSET*enc->na + FMT_SIZEOF_DATAHEADER;
 	for (int i=0;i<enc->na;i++) {
 		int l = 6 + (FMT_SIZEOF_DACASSET * i);
 		enc->assets[i].offset = enc->length;
 
-		memcpy(buf+l+2-nUsedBytes(enc->assets[i].type),		&(enc->assets[i].type), 	2);
+		memcpy(buf+l,										&(enc->assets[i].type), 	2);
 		memcpy(buf+l+2,										enc->assets[i].name, 		MIN(16, strlen(enc->assets[i].name))); // Remove ext and null
-		memcpy(buf+l+22-nUsedBytes(enc->assets[i].length),	&(enc->assets[i].length), 	4);
-		memcpy(buf+l+FMT_SIZEOF_DACASSET-nUsedBytes(enc->assets[i].offset),	&(enc->assets[i].offset), 	4);
+		memcpy(buf+l+18,									&(enc->assets[i].length), 	4);
+		memcpy(buf+l+22,									&(enc->assets[i].offset), 	4);
 		
 		enc->length += enc->assets[i].length + FMT_SIZEOF_FILEDIVIDER;
 	}
@@ -199,7 +200,7 @@ void wriReadMaster(RIEncoder* enc) {
 	read(enc->fptr, buf, 4);
 	enc->length = xtoi(buf, 4);
 	if (enc->length != flen(enc->fptr)) {
-		printf("[E] wriReadMaster: file appears corrupted (fd = %d)\n\t%s\n", enc->fptr, strerror(errno));
+		printf("[E] wriReadMaster: file appears corrupted (%ld (read length) != %ld (actual length) %d)\n\t%s\n", enc->length, flen(enc->fptr), enc->fptr, strerror(errno));
 		exit(0);
 	}
 }
@@ -222,6 +223,16 @@ void wriReadDAC(RIEncoder* enc) {
 
 		enc->assets[i].length = xtoi(data_buf+18,4);
 		enc->assets[i].offset = xtoi(data_buf+22,4);
+	}
+}
+
+void wriListAssets(RIEncoder* enc) {
+	char version_buf[16];
+	lseek(enc->fptr, 8, SEEK_SET);
+	read(enc->fptr, version_buf, 16);
+	printf("VERSION: %.*s\t - %s (%ldb) - \t NUMBER OF ASSETS: %d\n", 16, version_buf, enc->filename, enc->length, enc->na);
+	for (int i=0; i<enc->na; i++) {
+		printf("\tASSET [%d] - \"%.*s\"\n\t\tTYPE: %d\n\t\tLENGTH: %ld\n\t\tPOSITION IN FILE: %ld\n", i, 16, enc->assets[i].name, enc->assets[i].type, enc->assets[i].length, enc->assets[i].offset);
 	}
 }
 

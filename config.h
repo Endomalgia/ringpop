@@ -3,19 +3,20 @@
 
 /* ///////////////////////////// COMMAND LINE ////////////////////////////// */
 
-const char* argp_program_bug_address             = "<address@mail.com>";
-const char* argp_program_version                 = "ringpop v0.0.0a 'Abiu Attack'"; // https://simple.wikipedia.org/wiki/List_of_fruits (1)
+const char* argp_program_bug_address             = "<nowhere@seethe.com>";
+const char* argp_program_version                 = "ringpop v1.0.0 'Açaí Aggravation'"; // https://simple.wikipedia.org/wiki/List_of_fruits (1)
 static char argp_program_desc[]                  = "a.out -- Test test";
 static char argp_program_args_desc[]             = "[ARGS]";
 static struct argp_option argp_program_options[] = {
-  {"input",     'i',  0,  0,  "Input files for addition to a ring"},
-  {"output",    'o',  0,  0,  "Ring to output to"},
-  {"append",    'a',  0,  0,  "Ring to append to"},
-  {"list",      'l',  0,  0,  "List assets contained within the following ring file"},
+  {"info",      'i',  "FILE",  0,  "Read the contents of a particular ring file"},
+  {"output",    'o',  "FILE",  0,  "Ring to output to"},
+  {"append",    'a',  "FILE",  0,  "Ring to append to"},
+  {"files",     'f',  "FILE",  0,  "Assets to append to the ring (each file needs its own -f)"},
   {"play",      'p',  0,  0,  "View assets in the given ring file"},
   {"verbose",   'v',  0,  0,  "Produce extended output"},
-  {"quiet",     'q',  0,  0,  "Produce no output"},
   { 0 }};
+
+#define	DEFAULT_OUTPUT_FILENAME "out.ri";
 
 /* //////////////////////////////// FORMAT ///////////////////////////////// */
 /* 

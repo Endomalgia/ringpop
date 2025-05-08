@@ -32,7 +32,7 @@ static const int FMT_SIZEOF_FILEDIVIDER						= 16;
 static const char FMT_MASTERBLOCKID[4]						= {0x52, 0x49, 0x4E, 0x47};	// 4b RING
 static const char FMT_DATAARRAYBLOCKID[4]				  	= {0x64, 0x61, 0x63, 0x20};	// 4b dac␣
 static const char FMT_DATABLOCKID[4]						= {0x64, 0x61, 0x74, 0x61};	// 4b data
-static const char FMT_VERSIONSTRING[16]						= "v0.0.0a Abiu\0\0\0\0";   // 16b Is a /0 automatically added when strings are defined like this?
+static const char FMT_VERSIONSTRING[16]						= "v1.0.0 Açaí\0\0\0";   // 16b Is a /0 automatically added when strings are defined like this?
 
 static const char FMT_FILEDIVIDER[16]						= "\0EOF SEPARATOR!\0";		// 16b
 
@@ -53,6 +53,7 @@ typedef struct {
 	unsigned long  int 	length;
 	unsigned short int 	na;
 	RIASSET*			assets;
+	char* 				filename;
 } RIEncoder;
 
 /* RI Encoder Creation */
@@ -64,11 +65,12 @@ void wriCloseEncoder(RIEncoder* enc);
 void wriWriteMaster(RIEncoder* enc);
 void wriWriteDAC(RIEncoder* enc);
 void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n);
-// void wriRemoveAssetbyIndex(RIEncoder* enc, int index); // I'm not going to do this until I have to use it which will be never. Just make another one.
+//void wriRemoveAssetbyIndex(RIEncoder* enc, int index); // I'm not going to do this until I have to use it which will be never. Just make another one lol :3.
 
 /* RI Reading */
 void wriReadMaster(RIEncoder* enc);
 void wriReadDAC(RIEncoder* enc);
+void wriListAssets(RIEncoder* enc);
 
 /* Asset Access */
 int wriAssetGetFD(RIEncoder* enc, char* name);
