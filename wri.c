@@ -26,12 +26,11 @@ int nUsedBytes(int i) {
 int xtoi(char* xbuf, int nelem) {
 	if (nelem == 0) [[unlikely]]
 		return 0;
-	int o = 0;
+	unsigned int o = 0;
 	for (int i=0; i<nelem; i++) {
-		o+=(xbuf[i] << (8*(nelem-i-1)));
-        printf("\t%d\n",xbuf[i] << (4*(nelem-i-1)));
+		o+=((unsigned char)xbuf[i] << (8*(nelem-i-1)));
 	}
-	return o;
+	return (int)o;
 }
 
 long int flen(int fd) {
@@ -204,19 +203,55 @@ void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n) {
 }
 
 void wriReadMaster(RIEncoder* enc) {
-
+	char buf[4];
+	lseek(enc->fptr, 4, SEEK_SET); // countof(FMT_MASTERBLOCKID)?
+	read(enc->fptr, buf, 4);
+	enc->length = xtoi(buf, 4);
+	if (enc->length != flen(enc->fptr)) {
+		printf("[E] wriReadMaster: file appears corrupted (fd = %d)\n\t%s\n", enc->fptr, strerror(errno));
+		exit(0);
+	}
 }
 
 void wriReadDAC(RIEncoder* enc) {
-	
+	char data_buf[26];
+	lseek(enc->fptr, FMT_SIZEOF_MASTERBLOCK + 4, SEEK_SET);
+	read(enc->fptr, data_buf, 2);
+	enc->na = xtoi(data_buf, 2);
+	enc->assets = realloc(enc->assets, enc->na * sizeof(RIASSET));
+	for (int i=0; i<enc->na; i++) {
+		read(enc->fptr, data_buf, 26); // Read entire asset into buffer
+
+		enc->assets[i].fptr = -1; // Not relevent during a read, do manually.
+		enc->assets[i].type = xtoi(data_buf,2);
+
+		enc->assets[i].name = malloc(16); // FIND A WAY AROUND THIS!!!!
+		memcpy(enc->assets[i].name, data_buf+2, 16);
+
+		enc->assets[i].length = xtoi(data_buf+18,4);
+		enc->assets[i].offset = xtoi(data_buf+22,4);
+	}
 }
 
 int wriAssetGetFD(RIEncoder* enc, char* name) {
-	return 0;
+	wriReadDAC(enc);
+	for (int i=0; i<enc->na; i++) {
+		if (strcmp(name, enc->assets[i].name) == 0) {
+			lseek(enc->fptr, enc->assets[i].offset, SEEK_SET);
+			return enc->fptr;
+		}
+	}
+	printf("[E] wriAssetGetFD: Unable to locate asset [%s]\n", name);
+	exit(0);
 }
 
 int wriAssetGetFDbyIndex(RIEncoder* enc, int index) {
-	return 0;
+	if (index >= enc->na) {
+		printf("[E] wriAssetGetFDbyIndex: Index out of range [%d out of %d]\n", index,enc->na);
+		exit(0);
+	}
+	lseek(enc->fptr, enc->assets[index].offset, SEEK_SET);
+	return enc->fptr;
 }
 
 void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {

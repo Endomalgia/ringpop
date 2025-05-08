@@ -70,6 +70,20 @@ int main(int argc, char* argv[]) {
 
   wriAppendAssets(enc, assets, 2);
 
+
+  wriReadMaster(enc);
+
+  struct stat info;
+  fstat(enc->fptr, &info);
+  printf("ENCODER LENGTH = %d(read) vs %d(actual)\n", enc->length, info.st_size);
+
+  wriReadDAC(enc);
+
+  printf("NUMBER OF ASSETS READ = %d\n", enc->na);
+  for (int i=0; i<enc->na; i++) {
+    printf("ASSET [%d]\n\tNAME: \"%.*s\"\n\tOFFSET: %ld\n\tLENGTH: %ld\n", i, 16, enc->assets[i].name, enc->assets[i].offset, enc->assets[i].length);
+  }
+
   wriCloseEncoder(enc);
 
   free(assets);
