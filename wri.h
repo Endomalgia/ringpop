@@ -79,4 +79,7 @@ int wriAssetGetFDbyIndex(RIEncoder* enc, int index);
 /* Asset Array */
 void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n);
 
+/* Assorted */
+void wriWriteToHeader(RIEncoder* enc);
+
 #endif

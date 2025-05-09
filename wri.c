@@ -113,7 +113,7 @@ void wriWriteMaster(RIEncoder* enc) {
 	memcpy(buf, 							FMT_MASTERBLOCKID, 	4);
 	memcpy(buf+4, 							&(enc->length), 	4); 
 	memcpy(buf+8, 							FMT_VERSIONSTRING, 	16);
-	
+
 	lseek(enc->fptr, 0, SEEK_SET);
 	write(enc->fptr, buf,	FMT_SIZEOF_MASTERBLOCK);
 }
@@ -272,4 +272,8 @@ void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {
 		ri_array[i].offset 	= -1;
 		ri_array[i].type 	= 0; // Switch over extensions eventually
 	}
+}
+
+void wriWriteToHeader(RIEncoder* enc) {
+	
 }
