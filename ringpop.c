@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <argp.h>
+#include <sndfile.h>
 
 /* configuration */
 #include "config.h"
@@ -97,6 +98,7 @@ int main(int argc, char* argv[]) {
 	// Parse Command Arguments
 	argp_parse(&argp, argc, argv, ARGP_IN_ORDER, 0, &cmd_args);
 
+
   // If no arguments were passed exit to 0
   if (cmd_args.do_create | cmd_args.do_append) {
 
@@ -124,6 +126,44 @@ int main(int argc, char* argv[]) {
     if (cmd_args.do_header) {
 
     }
+
+
+    // Read auio data from the second asset
+    SF_VIRTUAL_IO sf_vert = { (sf_count_t(*)(void*)) &_SNDFILE_LENGTH_CALLBACK, 
+                              (sf_count_t(*)(sf_count_t, int, void*)) &_SNDFILE_SEEK_CALLBACK, 
+                              (sf_count_t(*)(void*, sf_count_t, void*)) &_SNDFILE_READ_CALLBACK, 
+                              (sf_count_t(*)(const void*, sf_count_t, void*)) &_SNDFILE_WRITE_CALLBACK, 
+                              (sf_count_t(*)(void *)) &_SNDFILE_TELL_CALLBACK};
+    SF_INFO* sf_info = malloc(sizeof(SF_INFO));
+
+
+    enc->assets[1].encoder_fptr = enc->fptr;
+    lseek(enc->fptr, enc->assets[1].offset, SEEK_SET);
+    SNDFILE* sf = sf_open_virtual(&sf_vert, SFM_READ, sf_info, &(enc->assets[1]));
+    
+    sf_perror(sf); // Adding another asset breaks this :/ (no matter which end it is added to (dac fuckery most likely (during append or write)))
+ 
+    printf("AUDIO FILE INFO:\n\tframes - %ld\n\trate - %d\n\tchannels - %d\n\tformat - 0x%x\n", sf_info->frames, sf_info->samplerate, sf_info->channels, sf_info->format);
+
+    sf_close(sf);
+    free(sf_info);
+
+
+    
+    // Read image data from the first asset
+    int img_x, img_y, n_channels;
+
+    lseek(enc->fptr, enc->assets[0].offset, SEEK_SET);
+    stbi_io_callbacks stbi_vert = { (int(*)(void*,char*,int)) &_STBIMAGE_READ_CALLBACK,
+                                    (void(*)(void*,int)) &_STBIMAGE_SKIP_CALLBACK,
+                                    (int(*)(void*)) &_STBIMAGE_EOF_CALLBACK};
+    unsigned char* img_dat = stbi_load_from_callbacks(&stbi_vert, &(enc->assets[0]), &img_x, &img_y, &n_channels, 0);
+
+    printf("IMAGE FILE INFO:\n\twidth - %d\n\theight - %d\n\tchannels - %d\n",img_x, img_y, n_channels);
+
+    stbi_image_free(img_dat);
+
+    
 
     (cmd_args.verbose) ? printf("Closing encoder...\n"):0;
     wriCloseEncoder(enc);

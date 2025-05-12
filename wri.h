@@ -19,6 +19,8 @@
 #include <errno.h>
 #include <math.h>
 
+#include <stb/stb_image.h>
+
 //#include "config.h"
 
 #define SIZEOF_READBUFFER 64 // Make this a number of bits so that a faster bitshift operation may be used
@@ -37,10 +39,13 @@ static const char FMT_VERSIONSTRING[16]						= "v1.0.0 Açaí\0\0\0";   // 16b I
 static const char FMT_FILEDIVIDER[16]						= "\0EOF SEPARATOR!\0";		// 16b
 
 /* macros */
-#define RIASSET_TYPE_OGG	= 0x1;
+#define RIASSET_TYPE_UNKNOWN	= 0x0;
+#define RIASSET_TYPE_LIBSNDFILE	= 0x1;
+#define RIASSET_TYPE_STB_IMAGE	= 0x2;
 
 typedef struct {
-	int		fptr;
+	int		asset_fptr;
+	int		encoder_fptr;
 	char*	name;
 	long	length;
 	long 	offset;
@@ -81,5 +86,16 @@ void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n);
 
 /* Assorted */
 void wriWriteToHeader(RIEncoder* enc);
+
+/* Library specific callbacks (couldnt get thingz to load otherwize XP). Since these arent standardized or anything this is just how it be ;w; (no, sf_load_fd isn't supported enough prepz) */
+int _SNDFILE_LENGTH_CALLBACK(RIASSET* asset);
+int _SNDFILE_SEEK_CALLBACK(int offset, int whence, RIASSET* asset);
+int _SNDFILE_READ_CALLBACK(void* ptr, int count, RIASSET* asset);
+int _SNDFILE_WRITE_CALLBACK(const void* ptr, int count, RIASSET* asset);
+int _SNDFILE_TELL_CALLBACK(RIASSET* asset);
+
+int _STBIMAGE_READ_CALLBACK(RIASSET* asset, char* data, int size);
+void _STBIMAGE_SKIP_CALLBACK(RIASSET* asset, int n);
+int _STBIMAGE_EOF_CALLBACK(RIASSET* asset);
 
 #endif
