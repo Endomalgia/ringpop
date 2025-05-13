@@ -1,5 +1,7 @@
 /* ringpop - v1.0.0 'Açaí Aggravation' (9-5-2025) - public domain asset packer
 
+	NOT FINISHED AT THE MOMENT!!!!
+
 	Like stb_image please append:
 		#define RINGPOP_IMPLEMENTATION
 		#include "ringpop.h"
