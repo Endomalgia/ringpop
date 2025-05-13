@@ -33,7 +33,7 @@ int nUsedBytes(int i) {
 
 // hex string to integer (with leading zeros and fixed length)
 int xtoi(char* xbuf, int nelem) {
-	if (nelem == 0) [[unlikely]]
+	if (nelem == 0)
 		return 0;
 	unsigned int o = 0;
 	for (int i=0; i<nelem; i++) {
@@ -225,7 +225,8 @@ void wriReadDAC(RIEncoder* enc) {
 	for (int i=0; i<enc->na; i++) {
 		read(enc->fptr, data_buf, 26); // Read entire asset into buffer
 
-		enc->assets[i].asset_fptr = enc->fptr; // Not relevent during a read, do manually.
+		enc->assets[i].encoder_fptr = enc->fptr;
+		enc->assets[i].asset_fptr = -1; // Not relevent during a read, do manually.
 		enc->assets[i].type = xtoi(data_buf,2);
 
 		enc->assets[i].name = malloc(16); // FIND A WAY AROUND THIS!!!!
@@ -242,7 +243,20 @@ void wriListAssets(RIEncoder* enc) {
 	read(enc->fptr, version_buf, 16);
 	printf("VERSION: %.*s\t - %s (%ldb) - \t NUMBER OF ASSETS: %d\n", 16, version_buf, enc->filename, enc->length, enc->na);
 	for (int i=0; i<enc->na; i++) {
-		printf("\tASSET [%d] - \"%.*s\"\n\t\tTYPE: %d\n\t\tLENGTH: %ld\n\t\tPOSITION IN FILE: %ld\n", i, 16, enc->assets[i].name, enc->assets[i].type, enc->assets[i].length, enc->assets[i].offset);
+		printf("\tASSET [%d] - \"%.*s\"\n\t\tTYPE: ", i, 16, enc->assets[i].name, enc->assets[i].type, enc->assets[i].length, enc->assets[i].offset);
+
+		switch(enc->assets[i].type) {
+			case RIASSET_TYPE_LIBSNDFILE:
+				printf("LIBSNDFILE");
+				break;
+			case RIASSET_TYPE_STB_IMAGE:
+				printf("STBI IMAGE");
+				break;
+			default:
+				printf("UNKNOWN TYPE");
+		}
+
+		printf("\n\t\tLENGTH: %ld\n\t\tPOSITION IN FILE: %ld\n", enc->assets[i].length, enc->assets[i].offset);
 	}
 }
 
@@ -274,22 +288,70 @@ void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {
 			exit(0);
 		}
 		ri_array[i].asset_fptr 	= open(fp_array[i], O_RDONLY, S_IRUSR);
-		ri_array[i].encoder_fptr = -1;
 		ri_array[i].length 		= flen(ri_array[i].asset_fptr);
 
 		ri_array[i].name = malloc(16);
 		memcpy(ri_array[i].name, fp_array[i], 16);
 
-		ri_array[i].offset 	= -1;
-		ri_array[i].type 	= 0; // Switch over extensions eventually
+		ri_array[i].offset 	= 0;
+		ri_array[i].type 	= 0;
+
+		// Treat the actual file as an encoder with offset 0. Sort of hacky but it works
+		ri_array[i].encoder_fptr = ri_array[i].asset_fptr;
+		wriTypeAsset(&(ri_array[i]));
+		ri_array[i].encoder_fptr = -1;
 	}
 }
+
+void wriTypeAsset(RIASSET* asset) {
+	if (isLibsndfileDecodable(asset)) {
+		asset->type = RIASSET_TYPE_LIBSNDFILE;
+	} else if (isStbiiDecodable(asset)) {
+		asset->type = RIASSET_TYPE_STB_IMAGE;
+	} else {
+		asset->type = RIASSET_TYPE_UNKNOWN;
+}} // Cleaning this up the way I know how (weird bit manipulation) would only obscure its function imo
 
 void wriWriteToHeader(RIEncoder* enc) {
 	
 }
 
-// Ltrly all of these are like 1 line ffs aughhhhhhhhhhhh waste of a function call a** mother******* **** and **** I just I- **** rhin*** a *** rubidium ****.
+int isLibsndfileDecodable(RIASSET* asset) {
+    SF_VIRTUAL_IO sf_vert = { (sf_count_t(*)(void*)) &_SNDFILE_LENGTH_CALLBACK, 
+                              (sf_count_t(*)(sf_count_t, int, void*)) &_SNDFILE_SEEK_CALLBACK, 
+                              (sf_count_t(*)(void*, sf_count_t, void*)) &_SNDFILE_READ_CALLBACK, 
+                              (sf_count_t(*)(const void*, sf_count_t, void*)) &_SNDFILE_WRITE_CALLBACK, 
+                              (sf_count_t(*)(void *)) &_SNDFILE_TELL_CALLBACK};
+    SF_INFO* sf_info = malloc(sizeof(SF_INFO));
+
+    int is_lsfd = 0;
+
+    lseek(asset->encoder_fptr, asset->offset, SEEK_SET);
+    SNDFILE* sf = sf_open_virtual(&sf_vert, SFM_READ, sf_info, asset);
+
+    is_lsfd = !!sf;
+
+    sf_close(sf);
+    free(sf_info);
+    return is_lsfd;
+}
+
+int isStbiiDecodable(RIASSET* asset) {
+	int is_stbid = 0;
+	int dat;
+
+    lseek(asset->encoder_fptr, asset->offset, SEEK_SET);
+    stbi_io_callbacks stbi_vert = { (int(*)(void*,char*,int)) &_STBIMAGE_READ_CALLBACK,
+                                    (void(*)(void*,int)) &_STBIMAGE_SKIP_CALLBACK,
+                                    (int(*)(void*)) &_STBIMAGE_EOF_CALLBACK};
+    unsigned char* img_dat = stbi_load_from_callbacks(&stbi_vert, asset, &dat, &dat, &dat, 0);
+
+    is_stbid = !!img_dat;
+
+    stbi_image_free(img_dat);
+    return is_stbid;
+}
+
 int _SNDFILE_LENGTH_CALLBACK(RIASSET* asset) {
 	return asset->length;}
 
@@ -310,7 +372,7 @@ int _SNDFILE_READ_CALLBACK(void* ptr, int count, RIASSET* asset) {
 	return read(asset->encoder_fptr, ptr, count);}	// May cause errors in future as it doesnt return 0 on EOF, ignoring for now but ill bome back to it if things break;
 
 int _SNDFILE_WRITE_CALLBACK(const void* ptr, int count, RIASSET* asset) {
-	return read(asset->encoder_fptr, ptr, count);}
+	return write(asset->encoder_fptr, ptr, count);}
 
 int _SNDFILE_TELL_CALLBACK(RIASSET* asset) {
 	return lseek(asset->encoder_fptr, 0, SEEK_CUR) - asset->offset;}

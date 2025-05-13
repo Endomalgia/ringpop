@@ -39,9 +39,9 @@ static const char FMT_VERSIONSTRING[16]						= "v1.0.0 Açaí\0\0\0";   // 16b I
 static const char FMT_FILEDIVIDER[16]						= "\0EOF SEPARATOR!\0";		// 16b
 
 /* macros */
-#define RIASSET_TYPE_UNKNOWN	= 0x0;
-#define RIASSET_TYPE_LIBSNDFILE	= 0x1;
-#define RIASSET_TYPE_STB_IMAGE	= 0x2;
+#define RIASSET_TYPE_UNKNOWN	0x0
+#define RIASSET_TYPE_LIBSNDFILE	0x1
+#define RIASSET_TYPE_STB_IMAGE	0x2
 
 typedef struct {
 	int		asset_fptr;
@@ -81,11 +81,16 @@ void wriListAssets(RIEncoder* enc);
 int wriAssetGetFD(RIEncoder* enc, char* name);
 int wriAssetGetFDbyIndex(RIEncoder* enc, int index);
 
-/* Asset Array */
+/* Asset Editing */
 void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n);
+void wriTypeAsset(RIASSET* asset);
 
 /* Assorted */
 void wriWriteToHeader(RIEncoder* enc);
+
+/* Type Testing */
+int isLibsndfileDecodable(RIASSET* asset);
+int isStbiiDecodable(RIASSET* asset);
 
 /* Library specific callbacks (couldnt get thingz to load otherwize XP). Since these arent standardized or anything this is just how it be ;w; (no, sf_load_fd isn't supported enough prepz) */
 int _SNDFILE_LENGTH_CALLBACK(RIASSET* asset);
