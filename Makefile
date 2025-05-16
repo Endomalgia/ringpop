@@ -23,7 +23,7 @@ ARCHITECTURE = $(shell uname -m)
 BUILD_DIR := ./build
 
 # Files to manipulate
-SRC := ringpop.c wri.c
+SRC := ringpop.c 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 
 all: options ${SO} build

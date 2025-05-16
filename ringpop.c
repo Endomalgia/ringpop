@@ -11,7 +11,11 @@
 #include "config.h"
 
 /* core includes */
-#include "wri.h"
+#include "include/wri/ringpop.h"
+
+/* c includes */
+#define RINGPOP_IMPLEMENTATION
+#include "include/wri/ringpop.h"
 
 /* defines */
 #define TRUE 1
