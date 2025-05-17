@@ -22,7 +22,7 @@
 	[Data chunk]
 		DataBlockID	  (4b)	| "data" (0x52, 0x49, 0x4E, 0x47)
 		AssetData	  (xnb)	| File data separated by something? idk yet tbh
-								DataSep   (16b) | "\0EOF SEPARATOR!\0" is 
+								DataSep   (16b) | "\0EOF SEPARATOR!\0" is
 													pasted between files for
 													no real reason.
 
@@ -36,11 +36,11 @@
 	#define RING_[NAMEw/o.ri]_NASSETS		[enc->na]
 	#define RING_[NAMEw/o.ri]_INDEX			[index of RIng]
 
-	const RIasset [ASSET NAME] = {asset.name, asset.length, asset.offset, asset.type, RING_[NAMEw/o.ri]_INDEX}; 
+	const RIasset [ASSET NAME] = {asset.name, asset.length, asset.offset, asset.type, RING_[NAMEw/o.ri]_INDEX};
 
 	... (repeat for all combinations of assets and rings)
 	...
-	
+
 where
 
 	typedef struct {
@@ -58,7 +58,7 @@ where
 /*
 //////////////////////////////////////////////////////// DOCUMENTATION ////////////////////////////////////////////////////////////
 
-	The purpose of this project is to package assets for more convenient loading and organizing of baphomet projects. 
+	The purpose of this project is to package assets for more convenient loading and organizing of baphomet projects.
 
 */
 
@@ -96,89 +96,84 @@ const char 	FMT_VERSIONSTRING[16]					= "v1.0.1 Açaí\0\0\0";   		// 16b
 const char 	FMT_FILEDIVIDER[16]						= "\0EOF SEPARATOR!\0";		// 16b
 
 /* macros */
-#define RIASSET_TYPE_UNKNOWN		0x0
-#define RIASSET_TYPE_LIBSNDFILE	0x1
-#define RIASSET_TYPE_STB_IMAGE	0x2
+#define RIasset_TYPE_UNKNOWN		0x0
+#define RIasset_TYPE_LIBSNDFILE	0x1
+#define RIasset_TYPE_STB_IMAGE	0x2
 
 /* types */
 typedef struct {
-	int		asset_fd;
-	int		encoder_fd;
 	char*	name;
 	long	length;
 	long 	offset;
 	int 	type;
-} RIASSET;
+	int		encoder_fd;
+	int 	rp_index;		// For use in projects where an enc fd may not always be open
+} RIasset;
 
-	typedef struct {
-		char* name;
-		long length;
-		long offset;
-		int type;
-		int rp_index; // Index of the ring file the asset is contained within
-	} RIasset;
+// GOALS: Make the RIasset type more in-line with the version that will be used for RIasset.
+// Do this by removing the need for asset_fd and replacing encoder_fd with rp_index and a ring array.
 
 typedef struct {
 	int   				fd;
 	unsigned long  int 	length;
 	unsigned short int 	na;
-	RIASSET*			assets;
+	RIasset*			assets;
 	char* 				filename;
-} RIEncoder;
+} RIencoder;
 
 /* functions */
 
 // RI Encoder Creation
-RIEncoder* wriStartEncoder(char* ri_filepath);									// Creating new *.ri
-RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode);	// Writing to existing *.ri (O_RDONLY, O_WRONLY, O_RDWR)
-void wriCloseEncoder(RIEncoder* enc);
+RIencoder* wriStartEncoder(char* ri_filepath);									// Creating new *.ri
+RIencoder* wriOpenEncoder(char* ri_filepath, int access_mode);	// Writing to existing *.ri (O_RDONLY, O_WRONLY, O_RDWR)
+void wriCloseEncoder(RIencoder* enc);
 
 // RI Writing
-void wriWriteMaster(RIEncoder* enc);
-void wriWriteDAC(RIEncoder* enc);
-void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n);
-//void wriRemoveAssetbyIndex(RIEncoder* enc, int index); // I'm not going to do this until I have to use it which will be never. Just make another one lol :3.
+void wriWriteMaster(RIencoder* enc);
+void wriWriteDAC(RIencoder* enc);
+void wriAppendAssets(RIencoder* enc, char** asset_filepaths, int n);
+//void wriRemoveAssetbyIndex(RIencoder* enc, int index); // I'm not going to do this until I have to use it which will be never. Just make another one lol :3.
 
 // RI Reading
-void wriReadMaster(RIEncoder* enc);
-void wriReadDAC(RIEncoder* enc);
-void wriListAssets(RIEncoder* enc);
+void wriReadMaster(RIencoder* enc);
+void wriReadDAC(RIencoder* enc);
+void wriListAssets(RIencoder* enc);
 
 // Asset Access
-int wriAssetGetFD(RIEncoder* enc, char* name);
-int wriAssetGetFDbyIndex(RIEncoder* enc, int index);
+int wriAssetGetFD(RIencoder* enc, char* name);
+int wriAssetGetFDbyIndex(RIencoder* enc, int index);
 
 // Asset Editing
-void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n);
-void wriTypeAsset(RIASSET* asset);
+void wriOpenAssets(char** fp_array, RIasset* ri_array, int n);
+void wriTypeAsset(RIasset* asset);
 
 // Assorted
-void wriWriteToHeader(RIEncoder** enc_array, int n_enc, char* filepath_h);
+void wriWriteToHeader(RIencoder** enc_array, int n_enc, char* filepath_h);
 
 // Library Functions
-int isLibsndfileDecodable(RIASSET* asset);
+int isLibsndfileDecodable(RIasset* asset);
 int wriOpenSoundfile();
-int isStbiiDecodable(RIASSET* asset);
+int isStbiiDecodable(RIasset* asset);
 
 // Library specific callbacks (couldnt get thingz to load otherwize XP). Since these arent standardized or anything this is just how it be ;w; (no, sf_load_fd isn't supported enough prepz)
-int _SNDFILE_LENGTH_CALLBACK(RIASSET* asset);
-int _SNDFILE_SEEK_CALLBACK(int offset, int whence, RIASSET* asset);
-int _SNDFILE_READ_CALLBACK(void* ptr, int count, RIASSET* asset);
-int _SNDFILE_WRITE_CALLBACK(const void* ptr, int count, RIASSET* asset);
-int _SNDFILE_TELL_CALLBACK(RIASSET* asset);
+int _SNDFILE_LENGTH_CALLBACK(RIasset* asset);
+int _SNDFILE_SEEK_CALLBACK(int offset, int whence, RIasset* asset);
+int _SNDFILE_READ_CALLBACK(void* ptr, int count, RIasset* asset);
+int _SNDFILE_WRITE_CALLBACK(const void* ptr, int count, RIasset* asset);
+int _SNDFILE_TELL_CALLBACK(RIasset* asset);
 
-int _STBIMAGE_READ_CALLBACK(RIASSET* asset, char* data, int size);
-void _STBIMAGE_SKIP_CALLBACK(RIASSET* asset, int n);
-int _STBIMAGE_EOF_CALLBACK(RIASSET* asset);
+int _STBIMAGE_READ_CALLBACK(RIasset* asset, char* data, int size);
+void _STBIMAGE_SKIP_CALLBACK(RIasset* asset, int n);
+int _STBIMAGE_EOF_CALLBACK(RIasset* asset);
 
 #endif
 #ifdef RINGPOP_IMPLEMENTATION
 #ifndef RINGPOP_IMPLEMENTATION_H
 #define RINGPOP_IMPLEMENTATION_H
- 
+
 /*
 //////////////////////////////////////////////////////// IMPLEMENTATION //////////////////////////////////////////////////////////
-	
+
 	C code starts here
 
 */
@@ -207,8 +202,8 @@ long int flen(int fd) {
 	return (long)info.st_size;}
 
 /* encoder functions */
-RIEncoder* wriStartEncoder(char* ri_filepath) {
-	RIEncoder* enc;
+RIencoder* wriStartEncoder(char* ri_filepath) {
+	RIencoder* enc;
 
 	// Check if the file exists
 	if (access(ri_filepath, F_OK) == 0) {
@@ -216,7 +211,7 @@ RIEncoder* wriStartEncoder(char* ri_filepath) {
 		exit(0);
 	}
 
-	enc = malloc(sizeof(RIEncoder));
+	enc = malloc(sizeof(RIencoder));
 	enc->filename = ri_filepath;
 	enc->assets = malloc(0);
 	enc->fd = open(ri_filepath, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
@@ -238,8 +233,8 @@ RIEncoder* wriStartEncoder(char* ri_filepath) {
 
 	return enc;}
 
-RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
-	RIEncoder* enc;
+RIencoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
+	RIencoder* enc;
 
 	// Check if the file doesn't exist
 	if (access(ri_filepath, F_OK) != 0) {
@@ -247,7 +242,7 @@ RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
 		exit(0);
 	}
 
-	enc = malloc(sizeof(RIEncoder));
+	enc = malloc(sizeof(RIencoder));
 	enc->filename = ri_filepath;
 	enc->assets = malloc(0);
 	enc->fd = open(ri_filepath, access_mode, S_IRUSR | S_IWUSR);
@@ -262,27 +257,26 @@ RIEncoder* wriOpenEncoder(char* ri_filepath, int access_mode) {
 
 	return enc;}
 
-void wriCloseEncoder(RIEncoder* enc) {
+void wriCloseEncoder(RIencoder* enc) {
 	for (int i=0; i<enc->na; i++) {
-		close(enc->assets[i].asset_fd);
 		free(enc->assets[i].name);
 	}
 	free(enc->assets);
 	close(enc->fd);}
 
-void wriWriteMaster(RIEncoder* enc) {
+void wriWriteMaster(RIencoder* enc) {
 	enc->length = (long)MAX(flen(enc->fd), SIZEOF_MASTERBLOCK);
 	char buf[SIZEOF_MASTERBLOCK];
 
 	memset(buf, 0, SIZEOF_MASTERBLOCK);
 	memcpy(buf, 							FMT_MASTERBLOCKID, 	4);
-	memcpy(buf+4, 							&(enc->length), 	4); 
+	memcpy(buf+4, 							&(enc->length), 	4);
 	memcpy(buf+8, 							FMT_VERSIONSTRING, 	16);
 
 	lseek(enc->fd, 0, SEEK_SET);
 	write(enc->fd, buf,	SIZEOF_MASTERBLOCK);}
 
-void wriWriteDAC(RIEncoder* enc) {
+void wriWriteDAC(RIencoder* enc) {
 	int dac_size = 6 + (SIZEOF_DACASSET * enc->na);
 	char* buf = malloc(dac_size);
 
@@ -299,7 +293,7 @@ void wriWriteDAC(RIEncoder* enc) {
 		memcpy(buf+l+2,										enc->assets[i].name, 		MIN(16, strlen(enc->assets[i].name))); // Remove ext and null
 		memcpy(buf+l+18,									&(enc->assets[i].length), 	4);
 		memcpy(buf+l+22,									&(enc->assets[i].offset), 	4);
-		
+
 		enc->length += enc->assets[i].length + SIZEOF_FILEDIVIDER;
 	}
 
@@ -308,57 +302,84 @@ void wriWriteDAC(RIEncoder* enc) {
 	free(buf);}
 
 #define SIZEOF_READBUFFER 									64
-void wriAppendAssets(RIEncoder* enc, RIASSET* assets, int n) {
-	char content_buf[SIZEOF_READBUFFER];
-	char size_buf[4];
-	struct stat info;
+void wriAppendAssets(RIencoder* enc, char** asset_filepaths, int n) {
+		RIasset* assets = malloc(n * sizeof(RIasset));
+		wriOpenAssets(asset_filepaths, assets, n);
 
-	long int eof_data_offset = SIZEOF_DACASSET*n;
-	long int new_eof = eof_data_offset + enc->length;
-	enc->na += n;
+		char content_buf[SIZEOF_READBUFFER];
+		char size_buf[4];
+		struct stat info;
 
-	// Append each asset to the encoder
-	enc->assets = realloc(enc->assets, enc->na * sizeof(RIASSET));
-	for (int a=0; a<n; a++) {
-		assets[a].encoder_fd = enc->fd;
-		enc->assets[a+enc->na-n] = assets[a];
-	}
+		long int eof_data_offset = SIZEOF_DACASSET*n;
+		long int new_eof = eof_data_offset + enc->length;
+		enc->na += n;
 
-	// Offset the current data in chunks of size SIZEOF_READBUFFER
-	lseek(enc->fd, 0, SEEK_END); // Number of blocks does not include any remainder
-	long int data_start = SIZEOF_MASTERBLOCK + SIZEOF_DACHEADER + SIZEOF_DACASSET*(enc->na-n) + SIZEOF_BLOCKID;
-	long int data_len = enc->length - data_start;
-	int n_blocks = (int)ceil((double)data_len / (double)SIZEOF_READBUFFER);
-	for (int b=1; b<n_blocks+1;b++) {
-		lseek(enc->fd, data_start + (n_blocks-b)*SIZEOF_READBUFFER, SEEK_SET);
-		read(enc->fd, content_buf, SIZEOF_READBUFFER);
-		lseek(enc->fd, data_start + (n_blocks-b)*SIZEOF_READBUFFER + eof_data_offset, SEEK_SET);
-		write(enc->fd, content_buf, SIZEOF_READBUFFER);
-	}
+		// Append each asset to the encoder
+		enc->assets = realloc(enc->assets, enc->na * sizeof(RIasset));
+		for (int a=0; a<n; a++) {
+			assets[a].encoder_fd = enc->fd;
+			enc->assets[a+enc->na-n] = assets[a];
+		}
 
-	// Write to the dac
-	wriWriteDAC(enc);
-
-	// Write in the new data
-	lseek(enc->fd, new_eof, SEEK_SET);
-	for (int c=enc->na-n; c<enc->na; c++) {
-		while(read(enc->assets[c].asset_fd, content_buf, SIZEOF_READBUFFER)) {
+		// Offset the current data in chunks of size SIZEOF_READBUFFER
+		lseek(enc->fd, 0, SEEK_END); // Number of blocks does not include any remainder
+		long int data_start = SIZEOF_MASTERBLOCK + SIZEOF_DACHEADER + SIZEOF_DACASSET*(enc->na-n) + SIZEOF_BLOCKID;
+		long int data_len = enc->length - data_start;
+		int n_blocks = (int)ceil((double)data_len / (double)SIZEOF_READBUFFER);
+		for (int b=1; b<n_blocks+1;b++) {
+			lseek(enc->fd, data_start + (n_blocks-b)*SIZEOF_READBUFFER, SEEK_SET);
+			read(enc->fd, content_buf, SIZEOF_READBUFFER);
+			lseek(enc->fd, data_start + (n_blocks-b)*SIZEOF_READBUFFER + eof_data_offset, SEEK_SET);
 			write(enc->fd, content_buf, SIZEOF_READBUFFER);
 		}
-		lseek(enc->fd, new_eof+enc->assets[c].length, SEEK_SET);
-		write(enc->fd, FMT_FILEDIVIDER, SIZEOF_FILEDIVIDER);
-		new_eof += enc->assets[c].length + SIZEOF_FILEDIVIDER; // Could also get the file pointer at the end of this loop with ftell()
-	}
-	ftruncate(enc->fd, new_eof); // Prevent any 'remainders' (shorter last blocks) from becoming an issue XP
 
-	// Rewrite the data header label thingie
-	lseek(enc->fd, SIZEOF_MASTERBLOCK + SIZEOF_DACHEADER + SIZEOF_DACASSET*enc->na, SEEK_SET);
-	write(enc->fd, FMT_DATABLOCKID, SIZEOF_BLOCKID);
+		// Write to the dac
+		wriWriteDAC(enc);
 
-	// Write master header (last as it contains the file size);
-	wriWriteMaster(enc);}
+		// Write in the new data
+		lseek(enc->fd, new_eof, SEEK_SET);
+		for (int c=enc->na-n; c<enc->na; c++) {
+			int asset_fd = open(asset_filepaths[c+n-enc->na], O_RDONLY, S_IRUSR);
+			while(read(asset_fd, content_buf, SIZEOF_READBUFFER)) {
+				write(enc->fd, content_buf, SIZEOF_READBUFFER);
+			}
+			close(asset_fd);
+			lseek(enc->fd, new_eof+enc->assets[c].length, SEEK_SET);
+			write(enc->fd, FMT_FILEDIVIDER, SIZEOF_FILEDIVIDER);
+			new_eof += enc->assets[c].length + SIZEOF_FILEDIVIDER; // Could also get the file pointer at the end of this loop with ftell()
+		}
+		ftruncate(enc->fd, new_eof); // Prevent any 'remainders' (shorter last blocks) from becoming an issue XP
 
-void wriReadMaster(RIEncoder* enc) {
+		// Rewrite the data header label thingie
+		lseek(enc->fd, SIZEOF_MASTERBLOCK + SIZEOF_DACHEADER + SIZEOF_DACASSET*enc->na, SEEK_SET);
+		write(enc->fd, FMT_DATABLOCKID, SIZEOF_BLOCKID);
+
+		// Write master header (last as it contains the file size);
+		wriWriteMaster(enc);}
+
+void wriOpenAssets(char** fp_array, RIasset* ri_array, int n) {
+		for (int i=0;i<n;i++) {
+			if (access(fp_array[i], F_OK) != 0) {
+				printf("[E] wriOpenAssets: Unable to open asset [%s]\n\t%s\n", fp_array[i], strerror(errno));
+				exit(0);
+			}
+
+			// Treat file as an encoder of size 0
+			ri_array[i].encoder_fd = open(fp_array[i], O_RDONLY, S_IRUSR);
+
+			wriTypeAsset(&(ri_array[i]));
+			ri_array[i].length 		= flen(ri_array[i].encoder_fd);
+
+			close(ri_array[i].encoder_fd);
+
+			ri_array[i].encoder_fd = -1;
+			ri_array[i].name = malloc(16);
+			memcpy(ri_array[i].name, fp_array[i], 16);
+			ri_array[i].offset 	= 0;
+			ri_array[i].type 	= 0;
+}}
+
+void wriReadMaster(RIencoder* enc) {
 	char buf[4];
 	lseek(enc->fd, 4, SEEK_SET); // countof(FMT_MASTERBLOCKID)?
 	read(enc->fd, buf, 4);
@@ -369,18 +390,17 @@ void wriReadMaster(RIEncoder* enc) {
 		exit(0);
 	}}
 
-void wriReadDAC(RIEncoder* enc) {
+void wriReadDAC(RIencoder* enc) {
 	char data_buf[26];
 
 	lseek(enc->fd, SIZEOF_MASTERBLOCK + 4, SEEK_SET);
 	read(enc->fd, data_buf, 2);
 	enc->na = xtoi(data_buf, 2);
-	enc->assets = realloc(enc->assets, enc->na * sizeof(RIASSET));
+	enc->assets = realloc(enc->assets, enc->na * sizeof(RIasset));
 	for (int i=0; i<enc->na; i++) {
 		read(enc->fd, data_buf, 26); // Read entire asset into buffer
 
 		enc->assets[i].encoder_fd = enc->fd;
-		enc->assets[i].asset_fd = -1; // Not relevent during a read, do manually.
 		enc->assets[i].type = xtoi(data_buf,2);
 
 		enc->assets[i].name = malloc(16); // FIND A WAY AROUND THIS!!!!
@@ -390,19 +410,19 @@ void wriReadDAC(RIEncoder* enc) {
 		enc->assets[i].offset = xtoi(data_buf+22,4);
 	}}
 
-void wriListAssets(RIEncoder* enc) {
+void wriListAssets(RIencoder* enc) {
 	char version_buf[16];
 	lseek(enc->fd, 8, SEEK_SET);
 	read(enc->fd, version_buf, 16);
 	printf("VERSION: %.*s\t - %s (%ldb) - \t NUMBER OF ASSETS: %d\n", 16, version_buf, enc->filename, enc->length, enc->na);
 	for (int i=0; i<enc->na; i++) {
-		printf("\tASSET [%d] - \"%.*s\"\n\t\tTYPE: ", i, 16, enc->assets[i].name, enc->assets[i].type, enc->assets[i].length, enc->assets[i].offset);
+		printf("\tASSET [%d] - \"%.*s\"\n\tLENGTH: %ld\n\tOFFSET: %ld\n\tTYPE: ", i, 16, enc->assets[i].name, enc->assets[i].length, enc->assets[i].offset);
 
 		switch(enc->assets[i].type) {
-			case RIASSET_TYPE_LIBSNDFILE:
+			case RIasset_TYPE_LIBSNDFILE:
 				printf("LIBSNDFILE");
 				break;
-			case RIASSET_TYPE_STB_IMAGE:
+			case RIasset_TYPE_STB_IMAGE:
 				printf("STBI IMAGE");
 				break;
 			default:
@@ -412,7 +432,7 @@ void wriListAssets(RIEncoder* enc) {
 		printf("\n\t\tLENGTH: %ld\n\t\tPOSITION IN FILE: %ld\n", enc->assets[i].length, enc->assets[i].offset);
 	}}
 
-int wriAssetGetFD(RIEncoder* enc, char* name) {
+int wriAssetGetFD(RIencoder* enc, char* name) {
 	wriReadDAC(enc);
 	for (int i=0; i<enc->na; i++) {
 		if (strcmp(name, enc->assets[i].name) == 0) {
@@ -423,7 +443,7 @@ int wriAssetGetFD(RIEncoder* enc, char* name) {
 	printf("[E] wriAssetGetFD: Unable to locate asset [%s]\n", name);
 	exit(0);}
 
-int wriAssetGetFDbyIndex(RIEncoder* enc, int index) {
+int wriAssetGetFDbyIndex(RIencoder* enc, int index) {
 	if (index >= enc->na) {
 		printf("[E] wriAssetGetFDbyIndex: Index out of range [%d out of %d]\n", index,enc->na);
 		exit(0);
@@ -431,34 +451,13 @@ int wriAssetGetFDbyIndex(RIEncoder* enc, int index) {
 	lseek(enc->fd, enc->assets[index].offset, SEEK_SET);
 	return enc->fd;}
 
-void wriOpenAssets(char** fp_array, RIASSET* ri_array, int n) {
-	for (int i=0;i<n;i++) {
-		if (access(fp_array[i], F_OK) != 0) {
-			printf("[E] wriOpenAssets: Unable to open asset [%s]\n\t%s\n", fp_array[i], strerror(errno));
-			exit(0);
-		}
-		ri_array[i].asset_fd 	= open(fp_array[i], O_RDONLY, S_IRUSR);
-		ri_array[i].length 		= flen(ri_array[i].asset_fd);
-
-		ri_array[i].name = malloc(16);
-		memcpy(ri_array[i].name, fp_array[i], 16);
-
-		ri_array[i].offset 	= 0;
-		ri_array[i].type 	= 0;
-
-		// Treat the actual file as an encoder with offset 0. Sort of hacky but it works
-		ri_array[i].encoder_fd = ri_array[i].asset_fd;
-		wriTypeAsset(&(ri_array[i]));
-		ri_array[i].encoder_fd = -1;
-	}}
-
-void wriTypeAsset(RIASSET* asset) {
+void wriTypeAsset(RIasset* asset) {
 	if (isLibsndfileDecodable(asset)) {
-		asset->type = RIASSET_TYPE_LIBSNDFILE;
+		asset->type = RIasset_TYPE_LIBSNDFILE;
 	} else if (isStbiiDecodable(asset)) {
-		asset->type = RIASSET_TYPE_STB_IMAGE;
+		asset->type = RIasset_TYPE_STB_IMAGE;
 	} else {
-		asset->type = RIASSET_TYPE_UNKNOWN;
+		asset->type = RIasset_TYPE_UNKNOWN;
 }} // Cleaning this up the way I know how (weird bit manipulation) would only obscure its function imo
 
 /*//////////////////////////// HEADER  OUTPUT /////////////////////////////
@@ -472,11 +471,11 @@ void wriTypeAsset(RIASSET* asset) {
 	#define RING_[NAMEw/o.ri]_INDEX			[index of RIng]
 
 	// For each asset
-	const RIasset [ASSET NAME] = {asset.name, asset.length, asset.offset, asset.type, RING_[NAMEw/o.ri]_INDEX}; 
+	const RIasset [ASSET NAME] = {asset.name, asset.length, asset.offset, asset.type, RING_[NAMEw/o.ri]_INDEX};
 
 	...
 	...
-	
+
 where
 
 	typedef struct {
@@ -488,7 +487,7 @@ where
 	} RIasset;
 */
 
-void wriWriteToHeader(RIEncoder** enc_array, int n_enc, char* filepath_h) {
+void wriWriteToHeader(RIencoder** enc_array, int n_enc, char* filepath_h) {
 	int fd_h = open(filepath_h, O_CREAT, S_IWUSR);
 
 	/*
@@ -499,7 +498,7 @@ void wriWriteToHeader(RIEncoder** enc_array, int n_enc, char* filepath_h) {
 
 	char* r_arr = malloc();
 
-	static const char* FMT_HEADER_HEADER						= "\/* This file was automatically generated by ringpop %s on  \/*\n\n";
+	static const char* FMT_HEADER_HEADER						= "\/ This file was automatically generated by ringpop %s on  \/\n\n";
 static const char* FMT_HEADER_RIARRAY						= "const char** RINGPOP_ARRAY = { %s };";
 static const char* FMT_HEADER_RIDATA						= "\/\/ %s.ri\n#define RING_%s_FP %s\n#define RING_%s_NASSETS %d\n#define RING_%s_INDEX %d\n\n";
 static const char* FMT_HEADER_ASSET							= "const RIasset %s = {%s, %ld, %ld, %d, %d}\n";
@@ -507,11 +506,11 @@ static const char* FMT_HEADER_ASSET							= "const RIasset %s = {%s, %ld, %ld, %
 	fprintf(fd_h, FMT_HEADER_HEADER, FMT_VERSIONSTRING);
 	*/}
 
-int isLibsndfileDecodable(RIASSET* asset) {
-    SF_VIRTUAL_IO sf_vert = { (sf_count_t(*)(void*)) &_SNDFILE_LENGTH_CALLBACK, 
-                              (sf_count_t(*)(sf_count_t, int, void*)) &_SNDFILE_SEEK_CALLBACK, 
-                              (sf_count_t(*)(void*, sf_count_t, void*)) &_SNDFILE_READ_CALLBACK, 
-                              (sf_count_t(*)(const void*, sf_count_t, void*)) &_SNDFILE_WRITE_CALLBACK, 
+int isLibsndfileDecodable(RIasset* asset) {
+    SF_VIRTUAL_IO sf_vert = { (sf_count_t(*)(void*)) &_SNDFILE_LENGTH_CALLBACK,
+                              (sf_count_t(*)(sf_count_t, int, void*)) &_SNDFILE_SEEK_CALLBACK,
+                              (sf_count_t(*)(void*, sf_count_t, void*)) &_SNDFILE_READ_CALLBACK,
+                              (sf_count_t(*)(const void*, sf_count_t, void*)) &_SNDFILE_WRITE_CALLBACK,
                               (sf_count_t(*)(void *)) &_SNDFILE_TELL_CALLBACK};
     SF_INFO* sf_info = malloc(sizeof(SF_INFO));
 
@@ -526,7 +525,7 @@ int isLibsndfileDecodable(RIASSET* asset) {
     free(sf_info);
     return is_lsfd;}
 
-int isStbiiDecodable(RIASSET* asset) {
+int isStbiiDecodable(RIasset* asset) {
 	int is_stbid = 0;
 	int dat;
 
@@ -541,10 +540,10 @@ int isStbiiDecodable(RIASSET* asset) {
     stbi_image_free(img_dat);
     return is_stbid;}
 
-int _SNDFILE_LENGTH_CALLBACK(RIASSET* asset) {
+int _SNDFILE_LENGTH_CALLBACK(RIasset* asset) {
 	return asset->length;}
 
-int _SNDFILE_SEEK_CALLBACK(int offset, int whence, RIASSET* asset) {
+int _SNDFILE_SEEK_CALLBACK(int offset, int whence, RIasset* asset) {
 	switch (whence) {
 		case SEEK_SET:
 			return lseek(asset->encoder_fd, offset + asset->offset, whence);
@@ -557,22 +556,22 @@ int _SNDFILE_SEEK_CALLBACK(int offset, int whence, RIASSET* asset) {
 			exit(0);
 	}};
 
-int _SNDFILE_READ_CALLBACK(void* ptr, int count, RIASSET* asset) {
+int _SNDFILE_READ_CALLBACK(void* ptr, int count, RIasset* asset) {
 	return read(asset->encoder_fd, ptr, count);}	// May cause errors in future as it doesnt return 0 on EOF, ignoring for now but ill bome back to it if things break;
 
-int _SNDFILE_WRITE_CALLBACK(const void* ptr, int count, RIASSET* asset) {
+int _SNDFILE_WRITE_CALLBACK(const void* ptr, int count, RIasset* asset) {
 	return write(asset->encoder_fd, ptr, count);}
 
-int _SNDFILE_TELL_CALLBACK(RIASSET* asset) {
+int _SNDFILE_TELL_CALLBACK(RIasset* asset) {
 	return lseek(asset->encoder_fd, 0, SEEK_CUR) - asset->offset;}
 
-int _STBIMAGE_READ_CALLBACK(RIASSET* asset, char* data, int size) {
+int _STBIMAGE_READ_CALLBACK(RIasset* asset, char* data, int size) {
 	return read(asset->encoder_fd, data, size);}
 
-void _STBIMAGE_SKIP_CALLBACK(RIASSET* asset, int n) {
+void _STBIMAGE_SKIP_CALLBACK(RIasset* asset, int n) {
 	lseek(asset->encoder_fd, n, SEEK_CUR);}
 
-int _STBIMAGE_EOF_CALLBACK(RIASSET* asset) {
+int _STBIMAGE_EOF_CALLBACK(RIasset* asset) {
 	return (lseek(asset->encoder_fd,0,SEEK_CUR) >= asset->length + asset->offset);} // Might be giving EOF like 1 byte too early. Eh, only one way to find out.
 
 #endif

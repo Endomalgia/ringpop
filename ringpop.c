@@ -34,11 +34,10 @@ struct commandline_args {int verbose, do_append, do_create, do_header;
                          char** inputs;};
 static error_t parse_opt(int key, char* arg, struct argp_state* state) {
 	struct commandline_args* arguments = state->input;
-	switch(key) {
-	case 'i':
-
+  RIencoder* enc;
+  switch(key) {
+   	case 'i':
       // Print the file data and exit
-      RIEncoder* enc;
       enc = wriOpenEncoder(arg, O_RDONLY);
       wriListAssets(enc);
       wriCloseEncoder(enc);
@@ -52,7 +51,7 @@ static error_t parse_opt(int key, char* arg, struct argp_state* state) {
       }
 
       OUTPUT_FILE = arg;
-   		
+
       arguments->do_create = TRUE;
    		break;
    	case 'a':
@@ -62,7 +61,7 @@ static error_t parse_opt(int key, char* arg, struct argp_state* state) {
       }
 
       OUTPUT_FILE = arg;
-      
+
       arguments->do_append = TRUE;
    		break;
     case 'f':
@@ -113,15 +112,11 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    (cmd_args.verbose) ? printf("Opening Assets...\n"):0;
-    RIASSET* assets = malloc(N_ASSETS * sizeof(RIASSET));
-    wriOpenAssets(INPUT_FILES, assets, N_ASSETS);
-
     (cmd_args.verbose) ? printf("Opening Encoder off of %s in O_RDWR...\n", OUTPUT_FILE):0;
-    RIEncoder* enc = (cmd_args.do_create) ? wriStartEncoder(OUTPUT_FILE) : wriOpenEncoder(OUTPUT_FILE, O_RDWR);
+    RIencoder* enc = (cmd_args.do_create) ? wriStartEncoder(OUTPUT_FILE) : wriOpenEncoder(OUTPUT_FILE, O_RDWR);
 
     (cmd_args.verbose) ? printf("Appending [%d] assets to file...\n", N_ASSETS):0;
-    wriAppendAssets(enc, assets, N_ASSETS);
+    wriAppendAssets(enc, INPUT_FILES, N_ASSETS);
 
     if (cmd_args.verbose) {
       wriListAssets(enc);
@@ -139,7 +134,7 @@ int main(int argc, char* argv[]) {
       printf("File is Image [%d]\n", isStbiiDecodable(&(enc->assets[i])));
     }
     */
-    
+
 
     (cmd_args.verbose) ? printf("Closing encoder...\n"):0;
     wriCloseEncoder(enc);
