@@ -269,7 +269,7 @@ void wriWriteMaster(RIencoder* enc) {
 	char buf[SIZEOF_MASTERBLOCK];
 
 	memset(buf, 0, SIZEOF_MASTERBLOCK);
-	memcpy(buf, 							FMT_MASTERBLOCKID, 	4);
+	memcpy(buf, 							FMT_MASTERBLOCKID, 	SIZEOF_BLOCKID);
 	memcpy(buf+4, 							&(enc->length), 	4);
 	memcpy(buf+8, 							FMT_VERSIONSTRING, 	16);
 
@@ -282,7 +282,7 @@ void wriWriteDAC(RIencoder* enc) {
 
 	memset(buf, 0, dac_size);
 
-	memcpy(buf, 									FMT_DATAARRAYBLOCKID, 				4);
+	memcpy(buf, 									FMT_DATAARRAYBLOCKID, 				SIZEOF_BLOCKID);
 	memcpy(buf+4, 									&(enc->na), 						2);
 	enc->length = SIZEOF_MASTERBLOCK + SIZEOF_DACHEADER + SIZEOF_DACASSET*enc->na + SIZEOF_BLOCKID;
 	for (int i=0;i<enc->na;i++) {
@@ -376,7 +376,6 @@ void wriOpenAssets(char** fp_array, RIasset* ri_array, int n) {
 			ri_array[i].name = malloc(16);
 			memcpy(ri_array[i].name, fp_array[i], 16);
 			ri_array[i].offset 	= 0;
-			ri_array[i].type 	= 0;
 }}
 
 void wriReadMaster(RIencoder* enc) {
@@ -391,14 +390,14 @@ void wriReadMaster(RIencoder* enc) {
 	}}
 
 void wriReadDAC(RIencoder* enc) {
-	char data_buf[26];
+	char data_buf[SIZEOF_DACASSET];
 
-	lseek(enc->fd, SIZEOF_MASTERBLOCK + 4, SEEK_SET);
+	lseek(enc->fd, SIZEOF_MASTERBLOCK + SIZEOF_BLOCKID, SEEK_SET);
 	read(enc->fd, data_buf, 2);
 	enc->na = xtoi(data_buf, 2);
 	enc->assets = realloc(enc->assets, enc->na * sizeof(RIasset));
 	for (int i=0; i<enc->na; i++) {
-		read(enc->fd, data_buf, 26); // Read entire asset into buffer
+		read(enc->fd, data_buf, SIZEOF_DACASSET); // Read entire asset into buffer
 
 		enc->assets[i].encoder_fd = enc->fd;
 		enc->assets[i].type = xtoi(data_buf,2);
