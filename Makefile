@@ -1,4 +1,4 @@
-# Baphomet
+# Ringpop
 
 # Version
 VERSION = 1.0.1
